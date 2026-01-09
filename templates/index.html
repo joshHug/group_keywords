@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floating Word Cloud</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 15px;
+            border-radius: 30px;
+            backdrop-filter: blur(5px);
+        }
+
+        input {
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: none;
+            outline: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border-radius: 20px;
+            border: none;
+            background-color: #00d2ff;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #3a7bd5;
+            color: white;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .word-bubble {
+            position: absolute;
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+            transition: font-size 0.3s ease, color 0.3s;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .word-bubble:hover {
+            color: #00d2ff;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <input type="text" id="wordInput" placeholder="Enter a word..." maxlength="20">
+        <button onclick="submitWord()">Add Word</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        const container = document.getElementById('canvas-container');
+        let wordsData = [];
+        let wordElements = {}; // Map id -> DOM Element
+        
+        // Physics configuration
+        const speed = 0.5;
+
+        // Fetch words on load and start loop
+        async function fetchWords() {
+            const response = await fetch('/group_keywords/api/words');
+            const data = await response.json();
+            updateWordCloud(data);
+        }
+
+        function updateWordCloud(data) {
+            // Check for new words or updates
+            data.forEach(word => {
+                let el = wordElements[word.id];
+                
+                // Calculate visual size (Max weight considered is 10)
+                const cappedWeight = Math.min(word.weight, 10);
+                const fontSize = 16 + (cappedWeight * 4); // Base 16px + 4px per weight
+                const opacity = 0.4 + (cappedWeight * 0.06); // Base 0.4 + increase
+
+                if (!el) {
+                    // Create new element
+                    el = document.createElement('div');
+                    el.className = 'word-bubble';
+                    el.innerText = word.text;
+                    el.onclick = () => upvoteWord(word.id);
+                    
+                    // Initialize random position and velocity
+                    el.x = Math.random() * (window.innerWidth - 100);
+                    el.y = Math.random() * (window.innerHeight - 100);
+                    el.vx = (Math.random() - 0.5) * speed * 2;
+                    el.vy = (Math.random() - 0.5) * speed * 2;
+                    
+                    container.appendChild(el);
+                    wordElements[word.id] = el;
+                }
+
+                // Update Visuals
+                el.style.fontSize = `${fontSize}px`;
+                el.style.opacity = opacity;
+            });
+        }
+
+async function submitWord() {
+    const input = document.getElementById('wordInput');
+    const text = input.value;
+    if(!text) return;
+
+    const response = await fetch('/group_keywords/api/words', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text: text })
+    });
+
+    const data = await response.json();
+
+    // Check if the server returned a 403 error (Limit Reached)
+    if (response.status === 403) {
+        alert(data.message); // "You have already contributed 3 words!"
+        return;
+    }
+
+    // Optional: Alert if word already exists
+    if (data.status === 'exists') {
+        alert("That word is already floating around!");
+    }
+
+    input.value = '';
+    fetchWords();
+}
+
+        async function upvoteWord(id) {
+            await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
+            fetchWords();
+        }
+
+        // The Animation Loop
+        function animate() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            for (let id in wordElements) {
+                let el = wordElements[id];
+                
+                // Update position
+                el.x += el.vx;
+                el.y += el.vy;
+
+                // Get current dimensions for collision
+                const rect = el.getBoundingClientRect();
+                
+                // Bounce off walls
+                if (el.x <= 0 || el.x + rect.width >= width) {
+                    el.vx *= -1;
+                    el.x = Math.max(0, Math.min(el.x, width - rect.width));
+                }
+                if (el.y <= 0 || el.y + rect.height >= height) {
+                    el.vy *= -1;
+                    el.y = Math.max(0, Math.min(el.y, height - rect.height));
+                }
+
+                // Apply to CSS
+                el.style.transform = `translate(${el.x}px, ${el.y}px)`;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize
+        fetchWords();
+        animate();
+
+        // Allow "Enter" key to submit
+        document.getElementById('wordInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') submitWord();
+        });
+
+    </script>
+</body>
+</html>
