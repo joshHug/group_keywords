@@ -322,7 +322,7 @@
 
         // --- VISUALS ---
 
-        function updateWordCloud(data) {
+	function updateWordCloud(data) {
             data.forEach(word => {
                 let el = wordElements[word.id];
                 const cappedWeight = Math.min(word.weight, 20);
@@ -339,6 +339,15 @@
                     el.vy = (Math.random() - 0.5) * speed * 2;
                     container.appendChild(el);
                     wordElements[word.id] = el;
+                }
+
+                // ADMIN TOOLTIP: If the API sent 'created_by', show it on hover
+                if (word.created_by) {
+                    el.title = `Created by: ${word.created_by}`;
+                    el.style.borderBottom = "1px dotted #555"; // Optional visual hint for admins
+                } else {
+                    el.removeAttribute('title');
+                    el.style.borderBottom = "none";
                 }
 
                 el.innerHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;

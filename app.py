@@ -5,6 +5,10 @@ from flask import Flask, render_template, request, jsonify, g
 app = Flask(__name__)
 DATABASE = 'words.db'
 
+# --- CONFIGURATION ---
+# UPDATE THIS: Replace the masked email with the real one
+ADMINS = {'kayo@berkeley.edu', 'h___@berkeley.edu'} 
+
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -19,19 +23,12 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-# --- HELPER: Get User Email Robustly ---
 def get_current_user():
-    # 1. Try X-Auth-Email (set by our updated Nginx)
     email = request.headers.get('X-Auth-Email')
-    
-    # 2. Try X-Auth-User (often the email in oauth2-proxy google provider)
     if not email:
         email = request.headers.get('X-Auth-User')
-
-    # 3. Fallback for debugging/local dev
     if not email:
         email = 'anonymous@dev.local'
-        
     return email
 
 def init_db():
@@ -62,19 +59,25 @@ def index():
 
 @app.route('/group_keywords/api/words', methods=['GET'])
 def get_words():
+    user_email = get_current_user()
     db = get_db()
     cursor = db.execute('SELECT * FROM words')
-    words = [dict(row) for row in cursor.fetchall()]
+    
+    # Convert rows to dicts so we can modify them
+    words = []
+    is_admin = user_email in ADMINS
+
+    for row in cursor.fetchall():
+        word_dict = dict(row)
+        # PRIVACY: Only send 'created_by' if the user is an admin
+        if not is_admin:
+            word_dict.pop('created_by', None)
+        words.append(word_dict)
+
     return jsonify(words)
 
 @app.route('/group_keywords/api/user_data', methods=['GET'])
 def get_user_data():
-    # --- DEBUG PRINT (Optional: Remove after verifying) ---
-    print("\n--- DEBUG HEADERS ---")
-    print(f"X-Auth-Email: {request.headers.get('X-Auth-Email')}")
-    print(f"X-Auth-User:  {request.headers.get('X-Auth-User')}")
-    # ----------------------------------------------------
-
     user_email = get_current_user()
     db = get_db()
     
@@ -92,7 +95,8 @@ def get_user_data():
     return jsonify({
         'user_id': user_email,
         'created': created_words,
-        'upvoted': upvoted_words
+        'upvoted': upvoted_words,
+        'is_admin': user_email in ADMINS # Helpful for frontend UI logic
     })
 
 @app.route('/group_keywords/api/words', methods=['POST'])
@@ -113,11 +117,13 @@ def add_word():
         return jsonify({'error': 'Invalid text provided'}), 400
 
     db = get_db()
-    cursor = db.execute('SELECT COUNT(*) as count FROM words WHERE created_by = ?', (user_email,))
-    user_word_count = cursor.fetchone()['count']
 
-    if user_word_count >= 3:
-        return jsonify({'error': 'Limit reached', 'message': 'You have already contributed 3 words!'}), 403
+    # LIMIT CHECK: Skip if Admin
+    if user_email not in ADMINS:
+        cursor = db.execute('SELECT COUNT(*) as count FROM words WHERE created_by = ?', (user_email,))
+        user_word_count = cursor.fetchone()['count']
+        if user_word_count >= 3:
+            return jsonify({'error': 'Limit reached', 'message': 'You have already contributed 3 words!'}), 403
 
     try:
         db.execute('INSERT INTO words (text, weight, created_by) VALUES (?, 1, ?)', (text, user_email))
@@ -157,21 +163,29 @@ def upvote_word(word_id):
     user_email = get_current_user()
     db = get_db()
 
-    cursor = db.execute('SELECT COUNT(*) as count FROM upvotes WHERE user_email = ?', (user_email,))
-    total_votes = cursor.fetchone()['count']
+    # 1. LIMIT CHECK: Skip if Admin
+    if user_email not in ADMINS:
+        cursor = db.execute('SELECT COUNT(*) as count FROM upvotes WHERE user_email = ?', (user_email,))
+        total_votes = cursor.fetchone()['count']
+        if total_votes >= 10:
+            return jsonify({'error': 'User limit reached', 'message': 'You have used all 10 of your upvotes!'}), 403
 
-    if total_votes >= 10:
-        return jsonify({'error': 'User limit reached', 'message': 'You have used all 10 of your upvotes!'}), 403
-
+    # 2. CHECK: Prevent duplicate votes (Apply to everyone)
     cursor = db.execute('SELECT 1 FROM upvotes WHERE user_email = ? AND word_id = ?', (user_email, word_id))
     if cursor.fetchone():
         return jsonify({'error': 'Already voted', 'message': 'You can only upvote a word once.'}), 403
 
-    cursor = db.execute('SELECT weight FROM words WHERE id = ?', (word_id,))
+    # 3. GET WORD INFO
+    cursor = db.execute('SELECT weight, created_by FROM words WHERE id = ?', (word_id,))
     row = cursor.fetchone()
     if not row:
         return jsonify({'error': 'Word not found'}), 404
     
+    # 4. CHECK: Prevent self-voting (Apply to everyone)
+    if row['created_by'] == user_email:
+        return jsonify({'error': 'Self-voting', 'message': 'You cannot upvote your own word.'}), 403
+
+    # 5. CHECK: Max weight (Apply to everyone)
     if row['weight'] >= 20:
         return jsonify({'error': 'Max weight reached', 'message': 'This word has reached the maximum rank.'}), 403
 
