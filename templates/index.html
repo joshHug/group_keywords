@@ -11,12 +11,79 @@
             background-color: #1a1a1a;
             color: white;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
         }
 
+        /* --- SIDEBAR STYLES --- */
+        #sidebar {
+            width: 250px;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-right: 1px solid #333;
+            padding: 20px;
+            box-sizing: border-box;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        h3 {
+            margin: 0 0 10px 0;
+            color: #00d2ff;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+        }
+
+        .user-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+        }
+
+        .remove-btn {
+            color: #ff4444;
+            cursor: pointer;
+            font-weight: bold;
+            margin-left: 10px;
+            padding: 0 5px;
+        }
+
+        .remove-btn:hover {
+            color: #ff0000;
+            background: rgba(255,0,0,0.1);
+            border-radius: 3px;
+        }
+
+        /* "The three words they've created should be larger" */
+        #created-list li span.word-text {
+            font-size: 1.1em; 
+            font-weight: bold;
+        }
+
+        /* Upvoted words smaller */
+        #upvoted-list li span.word-text {
+            font-size: 0.9em;
+            color: #ccc;
+        }
+
+        /* --- MAIN UI --- */
         #ui-container {
             position: absolute;
             top: 20px;
-            left: 50%;
+            left: 50%; /* Center relative to screen */
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
@@ -25,6 +92,7 @@
             padding: 15px;
             border-radius: 30px;
             backdrop-filter: blur(5px);
+            margin-left: 125px; /* Offset to account for sidebar width/2 to look centered in remaining space */
         }
 
         input {
@@ -35,7 +103,7 @@
             font-size: 16px;
         }
 
-        button {
+        button.add-btn {
             padding: 10px 20px;
             border-radius: 20px;
             border: none;
@@ -46,7 +114,7 @@
             transition: background 0.2s;
         }
 
-        button:hover {
+        button.add-btn:hover {
             background-color: #3a7bd5;
             color: white;
         }
@@ -54,7 +122,7 @@
         #canvas-container {
             position: absolute;
             top: 0;
-            left: 0;
+            left: 0; /* Canvas still covers whole screen, sidebar sits on top */
             width: 100vw;
             height: 100vh;
         }
@@ -67,19 +135,39 @@
             transition: font-size 0.3s ease, color 0.3s;
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            display: inline-block; 
         }
 
         .word-bubble:hover {
             color: #00d2ff;
             z-index: 50;
         }
+
+        .vote-count {
+            font-size: 0.6em; 
+            vertical-align: super;
+            margin-right: 2px;
+            opacity: 0.8;
+            color: #ffd700; 
+        }
     </style>
 </head>
 <body>
 
+    <div id="sidebar">
+        <div>
+            <h3>My Words (Max 3)</h3>
+            <ul id="created-list" class="user-list"></ul>
+        </div>
+        <div>
+            <h3>My Upvotes (Max 10)</h3>
+            <ul id="upvoted-list" class="user-list"></ul>
+        </div>
+    </div>
+
     <div id="ui-container">
-        <input type="text" id="wordInput" placeholder="Enter a word..." maxlength="20">
-        <button onclick="submitWord()">Add Word</button>
+        <input type="text" id="wordInput" placeholder="alpha_numeric_only..." maxlength="32">
+        <button class="add-btn" onclick="submitWord()">Add Word</button>
     </div>
 
     <div id="canvas-container"></div>
@@ -87,121 +175,189 @@
     <script>
         const container = document.getElementById('canvas-container');
         let wordsData = [];
-        let wordElements = {}; // Map id -> DOM Element
-        
-        // Physics configuration
+        let wordElements = {}; 
         const speed = 0.5;
 
-        // Fetch words on load and start loop
+        // --- FETCHING DATA ---
+
+        async function fetchAllData() {
+            await Promise.all([fetchWords(), fetchUserData()]);
+        }
+
         async function fetchWords() {
             const response = await fetch('/group_keywords/api/words');
             const data = await response.json();
+            
+            // Check for deletions (DOM elements that exist but aren't in new data)
+            const newIds = new Set(data.map(w => w.id));
+            for (let id in wordElements) {
+                if (!newIds.has(parseInt(id))) {
+                    // Remove from DOM
+                    container.removeChild(wordElements[id]);
+                    delete wordElements[id];
+                }
+            }
+            
             updateWordCloud(data);
         }
 
+        async function fetchUserData() {
+            const response = await fetch('/group_keywords/api/user_data');
+            const data = await response.json();
+            renderSidebar(data);
+        }
+
+        // --- SIDEBAR RENDERING ---
+
+        function renderSidebar(data) {
+            const createdList = document.getElementById('created-list');
+            const upvotedList = document.getElementById('upvoted-list');
+
+            createdList.innerHTML = '';
+            upvotedList.innerHTML = '';
+
+            // Render Created Words
+            data.created.forEach(word => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="word-text">${word.text}</span>
+                    <span class="remove-btn" onclick="deleteCreatedWord(${word.id})">✕</span>
+                `;
+                createdList.appendChild(li);
+            });
+
+            // Render Upvoted Words
+            data.upvoted.forEach(word => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="word-text">${word.text}</span>
+                    <span class="remove-btn" onclick="removeUpvote(${word.id})">✕</span>
+                `;
+                upvotedList.appendChild(li);
+            });
+        }
+
+        // --- ACTIONS ---
+
+        async function deleteCreatedWord(id) {
+            if(!confirm("Remove this word? If it has many votes, it will stay but be unlinked from you.")) return;
+            
+            const response = await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
+            if (response.ok) {
+                fetchAllData();
+            } else {
+                alert("Could not remove word.");
+            }
+        }
+
+        async function removeUpvote(id) {
+            const response = await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
+            if (response.ok) {
+                fetchAllData();
+            } else {
+                alert("Could not remove upvote.");
+            }
+        }
+
+        async function submitWord() {
+            const input = document.getElementById('wordInput');
+            const text = input.value;
+            if(!text) return;
+
+            const response = await fetch('/group_keywords/api/words', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text: text })
+            });
+
+            const data = await response.json();
+
+            if (response.status === 403) {
+                alert(data.message); 
+                return;
+            }
+            if (data.status === 'exists') {
+                alert("That word is already floating around!");
+            }
+
+            input.value = '';
+            fetchAllData();
+        }
+
+        async function upvoteWord(id) {
+            const response = await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
+            
+            if (response.status === 403) {
+                const data = await response.json();
+                alert(data.message);
+                return;
+            }
+            
+            fetchAllData();
+        }
+
+        // --- VISUALS ---
+
         function updateWordCloud(data) {
-            // Check for new words or updates
             data.forEach(word => {
                 let el = wordElements[word.id];
-                
-                // Calculate visual size (Max weight considered is 10)
-                const cappedWeight = Math.min(word.weight, 10);
-                const fontSize = 16 + (cappedWeight * 4); // Base 16px + 4px per weight
-                const opacity = 0.4 + (cappedWeight * 0.06); // Base 0.4 + increase
+                const cappedWeight = Math.min(word.weight, 20);
+                const fontSize = 16 + (cappedWeight * 3); 
+                const opacity = 0.4 + (cappedWeight * 0.03); 
 
                 if (!el) {
-                    // Create new element
                     el = document.createElement('div');
                     el.className = 'word-bubble';
-                    el.innerText = word.text;
                     el.onclick = () => upvoteWord(word.id);
-                    
-                    // Initialize random position and velocity
-                    el.x = Math.random() * (window.innerWidth - 100);
+                    el.x = 260 + Math.random() * (window.innerWidth - 360); // Offset x start to avoid sidebar overlap
                     el.y = Math.random() * (window.innerHeight - 100);
                     el.vx = (Math.random() - 0.5) * speed * 2;
                     el.vy = (Math.random() - 0.5) * speed * 2;
-                    
                     container.appendChild(el);
                     wordElements[word.id] = el;
                 }
 
-                // Update Visuals
+                el.innerHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
                 el.style.fontSize = `${fontSize}px`;
                 el.style.opacity = opacity;
             });
         }
 
-async function submitWord() {
-    const input = document.getElementById('wordInput');
-    const text = input.value;
-    if(!text) return;
-
-    const response = await fetch('/group_keywords/api/words', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text: text })
-    });
-
-    const data = await response.json();
-
-    // Check if the server returned a 403 error (Limit Reached)
-    if (response.status === 403) {
-        alert(data.message); // "You have already contributed 3 words!"
-        return;
-    }
-
-    // Optional: Alert if word already exists
-    if (data.status === 'exists') {
-        alert("That word is already floating around!");
-    }
-
-    input.value = '';
-    fetchWords();
-}
-
-        async function upvoteWord(id) {
-            await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
-            fetchWords();
-        }
-
-        // The Animation Loop
         function animate() {
             const width = window.innerWidth;
             const height = window.innerHeight;
+            const sidebarWidth = 250; // approximate width of sidebar to bounce off
 
             for (let id in wordElements) {
                 let el = wordElements[id];
-                
-                // Update position
                 el.x += el.vx;
                 el.y += el.vy;
-
-                // Get current dimensions for collision
                 const rect = el.getBoundingClientRect();
-                
-                // Bounce off walls
-                if (el.x <= 0 || el.x + rect.width >= width) {
+
+                // Bounce off walls (Right, Bottom, Top)
+                if (el.x + rect.width >= width) {
                     el.vx *= -1;
-                    el.x = Math.max(0, Math.min(el.x, width - rect.width));
+                    el.x = width - rect.width;
                 }
+                // Bounce off Left (Sidebar check)
+                if (el.x <= sidebarWidth) {
+                    el.vx *= -1;
+                    el.x = sidebarWidth;
+                }
+
                 if (el.y <= 0 || el.y + rect.height >= height) {
                     el.vy *= -1;
                     el.y = Math.max(0, Math.min(el.y, height - rect.height));
                 }
-
-                // Apply to CSS
                 el.style.transform = `translate(${el.x}px, ${el.y}px)`;
             }
-
             requestAnimationFrame(animate);
         }
 
         // Initialize
-        fetchWords();
+        fetchAllData();
         animate();
 
-        // Allow "Enter" key to submit
         document.getElementById('wordInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') submitWord();
         });
