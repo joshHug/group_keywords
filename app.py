@@ -108,8 +108,8 @@ def add_word():
     text = text.replace(' ', '_')
     text = re.sub(r'[^a-z0-9_]', '', text)
     
-    if len(text) > 12:
-        text = text[:12]
+    if len(text) > 32:
+        text = text[:32]
 
     user_email = get_current_user()
 
