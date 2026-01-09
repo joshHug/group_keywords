@@ -3,231 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Floating Word Cloud</title>
+    <title>Group Keywords</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #1a1a1a;
-            color: white;
+            padding: 0;
+            background-color: #f4f4f4;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
+            overflow: hidden; /* Prevent scrollbars */
         }
 
-        /* --- SIDEBAR STYLES --- */
+        /* --- SIDEBAR --- */
         #sidebar {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 250px;
             height: 100vh;
-            background-color: rgba(0, 0, 0, 0.8);
-            border-right: 1px solid #333;
+            background-color: #2c3e50;
+            color: white;
             padding: 20px;
             box-sizing: border-box;
-            z-index: 200;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        /* NEW: User Info Styles */
-        #user-info {
-            color: #999;
-            font-size: 0.85rem;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #333;
-            word-break: break-all; /* Wraps long emails/ids */
-        }
-        
-        #user-info strong {
-            color: #ccc;
-            display: block;
-            margin-bottom: 3px;
-        }
-
-        h3 {
-            margin: 0 0 10px 0;
-            color: #00d2ff;
-            font-size: 1.1rem;
-            border-bottom: 1px solid #333;
-            padding-bottom: 5px;
-        }
-
-        .user-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 100;
             overflow-y: auto;
         }
 
-        .user-list li {
+        #user-id-display {
+            font-size: 0.85em;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+            word-break: break-all;
+        }
+
+        h2 { margin-top: 0; font-size: 1.2em; }
+        h3 { margin-top: 20px; font-size: 1em; color: #ecf0f1; border-bottom: 1px solid #34495e; padding-bottom: 5px;}
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button#submit-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button#submit-btn:hover { background-color: #2ecc71; }
+
+        ul { list-style: none; padding: 0; }
+        li {
+            background: #34495e;
+            margin-bottom: 5px;
+            padding: 8px;
+            border-radius: 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            padding: 5px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 5px;
+            font-size: 0.9em;
         }
 
         .remove-btn {
-            color: #ff4444;
             cursor: pointer;
+            color: #e74c3c;
             font-weight: bold;
             margin-left: 10px;
-            padding: 0 5px;
         }
+        .remove-btn:hover { color: #c0392b; }
 
-        .remove-btn:hover {
-            color: #ff0000;
-            background: rgba(255,0,0,0.1);
-            border-radius: 3px;
-        }
-
-        #created-list li span.word-text {
-            font-size: 1.1em; 
-            font-weight: bold;
-        }
-
-        #upvoted-list li span.word-text {
-            font-size: 0.9em;
-            color: #ccc;
-        }
-
-        /* --- MAIN UI --- */
-        #ui-container {
-            position: absolute;
-            top: 20px;
-            left: 50%; 
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
-            border-radius: 30px;
-            backdrop-filter: blur(5px);
-            margin-left: 125px; 
-        }
-
-        input {
-            padding: 10px 15px;
-            border-radius: 20px;
-            border: none;
-            outline: none;
-            font-size: 16px;
-        }
-
-        button.add-btn {
-            padding: 10px 20px;
-            border-radius: 20px;
-            border: none;
-            background-color: #00d2ff;
-            color: #000;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button.add-btn:hover {
-            background-color: #3a7bd5;
-            color: white;
-        }
-
+        /* --- WORD CLOUD --- */
         #canvas-container {
             position: absolute;
             top: 0;
-            left: 0; 
-            width: 100vw;
+            left: 250px; /* Offset by sidebar width */
+            width: calc(100vw - 250px);
             height: 100vh;
+            background-color: #fff;
+            overflow: hidden;
         }
 
         .word-bubble {
             position: absolute;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
             cursor: pointer;
-            white-space: nowrap;
             user-select: none;
-            transition: font-size 0.3s ease, color 0.3s;
-            font-weight: bold;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            display: inline-block; 
+            white-space: nowrap;
+            transition: font-size 0.3s, background-color 0.2s;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            text-align: center;
         }
 
         .word-bubble:hover {
-            color: #00d2ff;
-            z-index: 50;
+            background-color: #2980b9;
+            z-index: 1000; /* Bring to front on hover */
         }
 
         .vote-count {
-            font-size: 0.6em; 
-            vertical-align: super;
-            margin-right: 2px;
+            font-size: 0.6em;
+            margin-right: 5px;
             opacity: 0.8;
-            color: #ffd700; 
+            vertical-align: super;
         }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <div id="user-info">
-            <strong>User:</strong>
-            <span id="user-id-display">Loading...</span>
-        </div>
+        <h2>Group Keywords</h2>
+        <div id="user-id-display">Loading user...</div>
 
-        <div>
-            <h3>My Words (Max 3)</h3>
-            <ul id="created-list" class="user-list"></ul>
-        </div>
-        <div>
-            <h3>My Upvotes (Max 10)</h3>
-            <ul id="upvoted-list" class="user-list"></ul>
-        </div>
-    </div>
+        <input type="text" id="wordInput" placeholder="Add a word (max 32 chars)" maxlength="32">
+        <button id="submit-btn" onclick="submitWord()">Submit</button>
 
-    <div id="ui-container">
-        <input type="text" id="wordInput" placeholder="alpha_numeric_only..." maxlength="32">
-        <button class="add-btn" onclick="submitWord()">Add Word</button>
+        <h3>My Contributions (Max 3)</h3>
+        <ul id="created-list"></ul>
+
+        <h3>My Upvotes (Max 10)</h3>
+        <ul id="upvoted-list"></ul>
+        
+        <div style="margin-top: 30px; font-size: 0.8em; color: #7f8c8d;">
+            Click a floating word to upvote it.
+        </div>
     </div>
 
     <div id="canvas-container"></div>
 
     <script>
         const container = document.getElementById('canvas-container');
-        let wordsData = [];
         let wordElements = {}; 
         const speed = 0.5;
 
         // --- FETCHING DATA ---
 
         async function fetchAllData() {
-            await Promise.all([fetchWords(), fetchUserData()]);
+            // Update sidebar and cloud separately
+            fetchUserData();
+            fetchWords();
         }
 
         async function fetchWords() {
-            const response = await fetch('/group_keywords/api/words');
-            const data = await response.json();
-            
-            const newIds = new Set(data.map(w => w.id));
-            for (let id in wordElements) {
-                if (!newIds.has(parseInt(id))) {
-                    container.removeChild(wordElements[id]);
-                    delete wordElements[id];
+            try {
+                const response = await fetch('/group_keywords/api/words');
+                if (!response.ok) return; 
+                const data = await response.json();
+                
+                // Remove words that were deleted from the database
+                const newIds = new Set(data.map(w => w.id));
+                for (let id in wordElements) {
+                    if (!newIds.has(parseInt(id))) {
+                        container.removeChild(wordElements[id]);
+                        delete wordElements[id];
+                    }
                 }
+                
+                updateWordCloud(data);
+            } catch (e) {
+                console.error("Polling error:", e);
             }
-            
-            updateWordCloud(data);
         }
 
         async function fetchUserData() {
-            const response = await fetch('/group_keywords/api/user_data');
-            const data = await response.json();
-            renderSidebar(data);
+            try {
+                const response = await fetch('/group_keywords/api/user_data');
+                if (!response.ok) return;
+                const data = await response.json();
+                renderSidebar(data);
+            } catch (e) {
+                console.error("User data error:", e);
+            }
         }
 
         // --- SIDEBAR RENDERING ---
 
         function renderSidebar(data) {
-            // NEW: Set User ID text
-            document.getElementById('user-id-display').innerText = data.user_id;
+            const userDisplay = document.getElementById('user-id-display');
+            userDisplay.innerText = data.user_id;
+            
+            // Add a visual indicator if user is admin
+            if (data.is_admin) {
+                userDisplay.innerHTML += " <span style='color:#e74c3c'>(Admin)</span>";
+            }
 
             const createdList = document.getElementById('created-list');
             const upvotedList = document.getElementById('upvoted-list');
@@ -259,9 +227,9 @@
         async function deleteCreatedWord(id, weight) {
             let message;
             if (weight <= 2) {
-                message = "Remove this word?";
+                message = "Permanently delete this word?";
             } else {
-                message = "Detach yourself from this word?";
+                message = "Detach yourself from this word? It will remain floating but become an orphan.";
             }
 
             if(!confirm(message)) return;
@@ -277,7 +245,7 @@
         async function removeUpvote(id) {
             const response = await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
             if (response.ok) {
-                fetchAllData();
+                fetchAllData(); // Refresh sidebar and cloud
             } else {
                 alert("Could not remove upvote.");
             }
@@ -301,7 +269,7 @@
                 return;
             }
             if (data.status === 'exists') {
-                alert("That word is already floating around!");
+                alert("That word is already floating around! Find it and upvote it.");
             }
 
             input.value = '';
@@ -317,39 +285,50 @@
                 return;
             }
             
+            // Immediately fetch updates so the UI reflects the vote
             fetchAllData();
         }
 
-        // --- VISUALS ---
+        // --- VISUALS & PHYSICS ---
 
-	function updateWordCloud(data) {
+        function updateWordCloud(data) {
             data.forEach(word => {
                 let el = wordElements[word.id];
+                
+                // Visual sizing based on weight
                 const cappedWeight = Math.min(word.weight, 20);
                 const fontSize = 16 + (cappedWeight * 3); 
-                const opacity = 0.4 + (cappedWeight * 0.03); 
+                const opacity = 0.5 + (cappedWeight * 0.025); 
 
+                // Create element if it doesn't exist
                 if (!el) {
                     el = document.createElement('div');
                     el.className = 'word-bubble';
                     el.onclick = () => upvoteWord(word.id);
-                    el.x = 260 + Math.random() * (window.innerWidth - 360); 
-                    el.y = Math.random() * (window.innerHeight - 100);
+                    
+                    // Random start position (within canvas)
+                    el.x = 10 + Math.random() * (window.innerWidth - 300); 
+                    el.y = 10 + Math.random() * (window.innerHeight - 100);
+                    
+                    // Random velocity
                     el.vx = (Math.random() - 0.5) * speed * 2;
                     el.vy = (Math.random() - 0.5) * speed * 2;
+                    
                     container.appendChild(el);
                     wordElements[word.id] = el;
                 }
 
-                // ADMIN TOOLTIP: If the API sent 'created_by', show it on hover
+                // --- ADMIN TOOLTIP FEATURE ---
+                // The backend only sends 'created_by' if user is admin
                 if (word.created_by) {
                     el.title = `Created by: ${word.created_by}`;
-                    el.style.borderBottom = "1px dotted #555"; // Optional visual hint for admins
+                    el.style.borderBottom = "2px dotted rgba(255,255,255,0.5)"; 
                 } else {
                     el.removeAttribute('title');
                     el.style.borderBottom = "none";
                 }
 
+                // Update content
                 el.innerHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
                 el.style.fontSize = `${fontSize}px`;
                 el.style.opacity = opacity;
@@ -357,39 +336,65 @@
         }
 
         function animate() {
-            const width = window.innerWidth;
+            // Physics loop
+            const width = window.innerWidth - 250; // Canvas width
             const height = window.innerHeight;
-            const sidebarWidth = 250; 
 
             for (let id in wordElements) {
                 let el = wordElements[id];
                 el.x += el.vx;
                 el.y += el.vy;
+                
+                // Get current dimensions of the bubble
                 const rect = el.getBoundingClientRect();
+                const elWidth = rect.width;
+                const elHeight = rect.height;
 
-                if (el.x + rect.width >= width) {
+                // Bounce off Right Wall
+                if (el.x + elWidth >= width) {
                     el.vx *= -1;
-                    el.x = width - rect.width;
+                    el.x = width - elWidth;
                 }
-                if (el.x <= sidebarWidth) {
+                // Bounce off Left Wall
+                if (el.x <= 0) {
                     el.vx *= -1;
-                    el.x = sidebarWidth;
+                    el.x = 0;
                 }
-                if (el.y <= 0 || el.y + rect.height >= height) {
+                // Bounce off Bottom
+                if (el.y + elHeight >= height) {
                     el.vy *= -1;
-                    el.y = Math.max(0, Math.min(el.y, height - rect.height));
+                    el.y = height - elHeight;
                 }
+                // Bounce off Top
+                if (el.y <= 0) {
+                    el.vy *= -1;
+                    el.y = 0;
+                }
+
+                // Apply position
                 el.style.transform = `translate(${el.x}px, ${el.y}px)`;
             }
             requestAnimationFrame(animate);
         }
 
-        fetchAllData();
-        animate();
+        // --- INITIALIZATION ---
+
+        fetchAllData(); // Run once immediately
+        animate();      // Start physics engine
 
         document.getElementById('wordInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') submitWord();
         });
+
+        // --- POLLING ---
+        // Check for new words every 2 seconds
+        // We only poll fetchWords (the cloud) to keep traffic light
+        // Sidebar data is only updated on manual actions or page load
+        setInterval(() => {
+            if (!document.hidden) {
+                fetchWords();
+            }
+        }, 2000);
 
     </script>
 </body>
