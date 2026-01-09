@@ -28,6 +28,21 @@
             gap: 20px;
         }
 
+        /* NEW: User Info Styles */
+        #user-info {
+            color: #999;
+            font-size: 0.85rem;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+            word-break: break-all; /* Wraps long emails/ids */
+        }
+        
+        #user-info strong {
+            color: #ccc;
+            display: block;
+            margin-bottom: 3px;
+        }
+
         h3 {
             margin: 0 0 10px 0;
             color: #00d2ff;
@@ -67,13 +82,11 @@
             border-radius: 3px;
         }
 
-        /* "The three words they've created should be larger" */
         #created-list li span.word-text {
             font-size: 1.1em; 
             font-weight: bold;
         }
 
-        /* Upvoted words smaller */
         #upvoted-list li span.word-text {
             font-size: 0.9em;
             color: #ccc;
@@ -83,7 +96,7 @@
         #ui-container {
             position: absolute;
             top: 20px;
-            left: 50%; /* Center relative to screen */
+            left: 50%; 
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
@@ -92,7 +105,7 @@
             padding: 15px;
             border-radius: 30px;
             backdrop-filter: blur(5px);
-            margin-left: 125px; /* Offset to account for sidebar width/2 to look centered in remaining space */
+            margin-left: 125px; 
         }
 
         input {
@@ -122,7 +135,7 @@
         #canvas-container {
             position: absolute;
             top: 0;
-            left: 0; /* Canvas still covers whole screen, sidebar sits on top */
+            left: 0; 
             width: 100vw;
             height: 100vh;
         }
@@ -155,6 +168,11 @@
 <body>
 
     <div id="sidebar">
+        <div id="user-info">
+            <strong>User:</strong>
+            <span id="user-id-display">Loading...</span>
+        </div>
+
         <div>
             <h3>My Words (Max 3)</h3>
             <ul id="created-list" class="user-list"></ul>
@@ -188,11 +206,9 @@
             const response = await fetch('/group_keywords/api/words');
             const data = await response.json();
             
-            // Check for deletions (DOM elements that exist but aren't in new data)
             const newIds = new Set(data.map(w => w.id));
             for (let id in wordElements) {
                 if (!newIds.has(parseInt(id))) {
-                    // Remove from DOM
                     container.removeChild(wordElements[id]);
                     delete wordElements[id];
                 }
@@ -209,16 +225,16 @@
 
         // --- SIDEBAR RENDERING ---
 
-// --- SIDEBAR RENDERING ---
-
         function renderSidebar(data) {
+            // NEW: Set User ID text
+            document.getElementById('user-id-display').innerText = data.user_id;
+
             const createdList = document.getElementById('created-list');
             const upvotedList = document.getElementById('upvoted-list');
 
             createdList.innerHTML = '';
             upvotedList.innerHTML = '';
 
-            // Render Created Words
             data.created.forEach(word => {
                 const li = document.createElement('li');
                 li.innerHTML = `
@@ -228,7 +244,6 @@
                 createdList.appendChild(li);
             });
 
-            // Render Upvoted Words
             data.upvoted.forEach(word => {
                 const li = document.createElement('li');
                 li.innerHTML = `
@@ -241,31 +256,8 @@
 
         // --- ACTIONS ---
 
-        // CHANGE: Function now accepts weight to determine the message
         async function deleteCreatedWord(id, weight) {
             let message;
-            
-            if (weight <= 2) {
-                message = "Remove this word?";
-            } else {
-                message = "Detach yourself from this word?";
-            }
-
-            if(!confirm(message)) return;
-            
-            const response = await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
-            if (response.ok) {
-                fetchAllData();
-            } else {
-                alert("Could not remove word.");
-            }
-        }
-
-        // --- ACTIONS ---
-
-	async function deleteCreatedWord(id, weight) {
-            let message;
-            
             if (weight <= 2) {
                 message = "Remove this word?";
             } else {
@@ -341,7 +333,7 @@
                     el = document.createElement('div');
                     el.className = 'word-bubble';
                     el.onclick = () => upvoteWord(word.id);
-                    el.x = 260 + Math.random() * (window.innerWidth - 360); // Offset x start to avoid sidebar overlap
+                    el.x = 260 + Math.random() * (window.innerWidth - 360); 
                     el.y = Math.random() * (window.innerHeight - 100);
                     el.vx = (Math.random() - 0.5) * speed * 2;
                     el.vy = (Math.random() - 0.5) * speed * 2;
@@ -358,7 +350,7 @@
         function animate() {
             const width = window.innerWidth;
             const height = window.innerHeight;
-            const sidebarWidth = 250; // approximate width of sidebar to bounce off
+            const sidebarWidth = 250; 
 
             for (let id in wordElements) {
                 let el = wordElements[id];
@@ -366,17 +358,14 @@
                 el.y += el.vy;
                 const rect = el.getBoundingClientRect();
 
-                // Bounce off walls (Right, Bottom, Top)
                 if (el.x + rect.width >= width) {
                     el.vx *= -1;
                     el.x = width - rect.width;
                 }
-                // Bounce off Left (Sidebar check)
                 if (el.x <= sidebarWidth) {
                     el.vx *= -1;
                     el.x = sidebarWidth;
                 }
-
                 if (el.y <= 0 || el.y + rect.height >= height) {
                     el.vy *= -1;
                     el.y = Math.max(0, Math.min(el.y, height - rect.height));
@@ -386,7 +375,6 @@
             requestAnimationFrame(animate);
         }
 
-        // Initialize
         fetchAllData();
         animate();
 
