@@ -2,217 +2,215 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Floating Word Cloud</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Group Keywords</title>
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #1a1a1a;
-            color: white;
+            padding: 0;
+            background-color: #f4f4f4;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
+            overflow: hidden;
+            touch-action: none;
         }
 
-        /* --- SIDEBAR STYLES --- */
+        /* --- SIDEBAR (Desktop Default) --- */
         #sidebar {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 250px;
             height: 100vh;
-            background-color: rgba(0, 0, 0, 0.8);
-            border-right: 1px solid #333;
+            background-color: #2c3e50;
+            color: white;
             padding: 20px;
             box-sizing: border-box;
-            z-index: 200;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 100;
+            overflow-y: auto;
+            transition: all 0.3s ease; /* Smooth transition on rotate */
         }
 
-        /* NEW: User Info Styles */
-        #user-info {
-            color: #999;
-            font-size: 0.85rem;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #333;
-            word-break: break-all; /* Wraps long emails/ids */
+        #user-id-display {
+            font-size: 0.85em;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+            word-break: break-all;
+        }
+
+        /* Input & Lists */
+        .sidebar-content {
+            display: block;
+        }
+
+        h2 { margin-top: 0; font-size: 1.2em; }
+        h3 { margin-top: 20px; font-size: 1em; color: #ecf0f1; border-bottom: 1px solid #34495e; padding-bottom: 5px;}
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            box-sizing: border-box;
+            border: none;
+            border-radius: 4px;
+        }
+
+        button#submit-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
         }
         
-        #user-info strong {
-            color: #ccc;
-            display: block;
-            margin-bottom: 3px;
-        }
-
-        h3 {
-            margin: 0 0 10px 0;
-            color: #00d2ff;
-            font-size: 1.1rem;
-            border-bottom: 1px solid #333;
-            padding-bottom: 5px;
-        }
-
-        .user-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            overflow-y: auto;
-        }
-
-        .user-list li {
+        ul { list-style: none; padding: 0; }
+        li {
+            background: #34495e;
+            margin-bottom: 5px;
+            padding: 8px;
+            border-radius: 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 8px;
-            padding: 5px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 5px;
-        }
-
-        .remove-btn {
-            color: #ff4444;
-            cursor: pointer;
-            font-weight: bold;
-            margin-left: 10px;
-            padding: 0 5px;
-        }
-
-        .remove-btn:hover {
-            color: #ff0000;
-            background: rgba(255,0,0,0.1);
-            border-radius: 3px;
-        }
-
-        #created-list li span.word-text {
-            font-size: 1.1em; 
-            font-weight: bold;
-        }
-
-        #upvoted-list li span.word-text {
             font-size: 0.9em;
-            color: #ccc;
         }
 
-        /* --- MAIN UI --- */
-        #ui-container {
-            position: absolute;
-            top: 20px;
-            left: 50%; 
-            transform: translateX(-50%);
-            z-index: 100;
-            display: flex;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 15px;
-            border-radius: 30px;
-            backdrop-filter: blur(5px);
-            margin-left: 125px; 
-        }
+        .remove-btn { cursor: pointer; color: #e74c3c; font-weight: bold; margin-left: 10px; }
 
-        input {
-            padding: 10px 15px;
-            border-radius: 20px;
-            border: none;
-            outline: none;
-            font-size: 16px;
-        }
-
-        button.add-btn {
-            padding: 10px 20px;
-            border-radius: 20px;
-            border: none;
-            background-color: #00d2ff;
-            color: #000;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        button.add-btn:hover {
-            background-color: #3a7bd5;
-            color: white;
-        }
-
+        /* --- WORD CLOUD CONTAINER --- */
         #canvas-container {
             position: absolute;
             top: 0;
-            left: 0; 
-            width: 100vw;
+            left: 250px; /* Matches Sidebar Width */
+            width: calc(100vw - 250px);
             height: 100vh;
+            background-color: #fff;
+            overflow: hidden;
+            transition: all 0.3s ease;
         }
 
         .word-bubble {
             position: absolute;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
             cursor: pointer;
-            white-space: nowrap;
             user-select: none;
-            transition: font-size 0.3s ease, color 0.3s;
-            font-weight: bold;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            display: inline-block; 
+            white-space: nowrap;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            text-align: center;
+            will-change: transform; /* Performance optimization */
         }
 
-        .word-bubble:hover {
-            color: #00d2ff;
-            z-index: 50;
+        /* --- RESPONSIVE LOGIC --- */
+
+        /* 1. Mobile Portrait: Collapse Sidebar to Badge */
+        @media screen and (max-width: 768px) and (orientation: portrait) {
+            #sidebar {
+                width: auto;
+                height: auto;
+                background: transparent;
+                box-shadow: none;
+                padding: 0;
+                overflow: visible;
+                pointer-events: none; /* Let clicks pass through to canvas */
+            }
+
+            #user-id-display {
+                display: inline-block;
+                background-color: rgba(44, 62, 80, 0.9);
+                padding: 8px 12px;
+                border-radius: 0 0 10px 0; /* Rounded bottom-right corner */
+                margin: 0;
+                color: #fff;
+                font-size: 0.75em;
+                pointer-events: auto;
+                box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            }
+
+            /* Hide the actual controls in portrait */
+            .sidebar-content, h2, h3, ul, input, button, .hint-text {
+                display: none !important;
+            }
+
+            /* Canvas takes full screen */
+            #canvas-container {
+                left: 0;
+                width: 100vw;
+            }
         }
 
-        .vote-count {
-            font-size: 0.6em; 
-            vertical-align: super;
-            margin-right: 2px;
-            opacity: 0.8;
-            color: #ffd700; 
+        /* 2. Mobile Landscape: Show Sidebar (Narrower) */
+        @media screen and (max-width: 900px) and (orientation: landscape) {
+            #sidebar {
+                width: 200px;
+                padding: 10px;
+            }
+            #canvas-container {
+                left: 200px;
+                width: calc(100vw - 200px);
+            }
+            /* Make text a bit smaller on phone landscape */
+            .word-bubble { font-size: 12px !important; } 
         }
+
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <div id="user-info">
-            <strong>User:</strong>
-            <span id="user-id-display">Loading...</span>
-        </div>
+        <h2 class="sidebar-content">Group Keywords</h2>
+        
+        <div id="user-id-display">Loading...</div>
 
-        <div>
-            <h3>My Words (Max 3)</h3>
-            <ul id="created-list" class="user-list"></ul>
-        </div>
-        <div>
-            <h3>My Upvotes (Max 10)</h3>
-            <ul id="upvoted-list" class="user-list"></ul>
-        </div>
-    </div>
+        <div class="sidebar-content">
+            <input type="text" id="wordInput" placeholder="Add word (max 12)" maxlength="12">
+            <button id="submit-btn" onclick="submitWord()">Submit</button>
 
-    <div id="ui-container">
-        <input type="text" id="wordInput" placeholder="alpha_numeric_only..." maxlength="32">
-        <button class="add-btn" onclick="submitWord()">Add Word</button>
+            <h3>My Words</h3>
+            <ul id="created-list"></ul>
+
+            <h3>Upvoted</h3>
+            <ul id="upvoted-list"></ul>
+            
+            <div class="hint-text" style="margin-top: 20px; font-size: 0.8em; color: #7f8c8d;">
+                Rotate device to view words only.
+            </div>
+        </div>
     </div>
 
     <div id="canvas-container"></div>
 
-<script>
+    <script>
         const container = document.getElementById('canvas-container');
-        let wordsData = [];
         let wordElements = {}; 
         const speed = 0.5;
 
-        // --- FETCHING DATA ---
+        // --- DATA ---
 
         async function fetchAllData() {
-            await Promise.all([fetchWords(), fetchUserData()]);
+            fetchUserData();
+            fetchWords();
         }
 
         async function fetchWords() {
             try {
                 const response = await fetch('/group_keywords/api/words');
-                if (!response.ok) return; // Skip if server error
+                if (!response.ok) return; 
                 const data = await response.json();
                 
-                // Remove words that were deleted
+                // Cleanup deleted words
                 const newIds = new Set(data.map(w => w.id));
                 for (let id in wordElements) {
                     if (!newIds.has(parseInt(id))) {
-                        container.removeChild(wordElements[id]);
+                        if(container.contains(wordElements[id])) {
+                            container.removeChild(wordElements[id]);
+                        }
                         delete wordElements[id];
                     }
                 }
@@ -229,15 +227,18 @@
                 if (!response.ok) return;
                 const data = await response.json();
                 renderSidebar(data);
-            } catch (e) {
-                console.error("User data error:", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        // --- SIDEBAR RENDERING ---
+        // --- UI ---
 
         function renderSidebar(data) {
-            document.getElementById('user-id-display').innerText = data.user_id;
+            const userDisplay = document.getElementById('user-id-display');
+            userDisplay.innerText = data.user_id;
+            
+            if (data.is_admin) {
+                userDisplay.innerHTML += " <span style='color:#e74c3c'>(Admin)</span>";
+            }
 
             const createdList = document.getElementById('created-list');
             const upvotedList = document.getElementById('upvoted-list');
@@ -247,19 +248,13 @@
 
             data.created.forEach(word => {
                 const li = document.createElement('li');
-                li.innerHTML = `
-                    <span class="word-text">${word.text}</span>
-                    <span class="remove-btn" onclick="deleteCreatedWord(${word.id}, ${word.weight})">✕</span>
-                `;
+                li.innerHTML = `<span class="word-text">${word.text}</span><span class="remove-btn" onclick="deleteCreatedWord(${word.id}, ${word.weight})">✕</span>`;
                 createdList.appendChild(li);
             });
 
             data.upvoted.forEach(word => {
                 const li = document.createElement('li');
-                li.innerHTML = `
-                    <span class="word-text">${word.text}</span>
-                    <span class="remove-btn" onclick="removeUpvote(${word.id})">✕</span>
-                `;
+                li.innerHTML = `<span class="word-text">${word.text}</span><span class="remove-btn" onclick="removeUpvote(${word.id})">✕</span>`;
                 upvotedList.appendChild(li);
             });
         }
@@ -267,30 +262,16 @@
         // --- ACTIONS ---
 
         async function deleteCreatedWord(id, weight) {
-            let message;
-            if (weight <= 2) {
-                message = "Remove this word?";
-            } else {
-                message = "Detach yourself from this word?";
-            }
-
-            if(!confirm(message)) return;
-            
-            const response = await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
-            if (response.ok) {
+            let msg = (weight <= 2) ? "Delete word?" : "Detach from word?";
+            if(confirm(msg)) {
+                await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
                 fetchAllData();
-            } else {
-                alert("Could not remove word.");
             }
         }
 
         async function removeUpvote(id) {
-            const response = await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
-            if (response.ok) {
-                fetchAllData();
-            } else {
-                alert("Could not remove upvote.");
-            }
+            await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
+            fetchAllData();
         }
 
         async function submitWord() {
@@ -305,64 +286,55 @@
             });
 
             const data = await response.json();
-
-            if (response.status === 403) {
-                alert(data.message); 
-                return;
-            }
-            if (data.status === 'exists') {
-                alert("That word is already floating around!");
-            }
-
+            if (response.status === 403) alert(data.message); 
+            else if (data.status === 'exists') alert("Word exists.");
+            
             input.value = '';
             fetchAllData();
         }
 
         async function upvoteWord(id) {
             const response = await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
-            
             if (response.status === 403) {
                 const data = await response.json();
                 alert(data.message);
-                return;
+            } else {
+                fetchAllData();
             }
-            
-            fetchAllData();
         }
 
-        // --- VISUALS ---
+        // --- PHYSICS ---
 
         function updateWordCloud(data) {
             data.forEach(word => {
                 let el = wordElements[word.id];
                 const cappedWeight = Math.min(word.weight, 20);
                 const fontSize = 16 + (cappedWeight * 3); 
-                const opacity = 0.4 + (cappedWeight * 0.03); 
+                const opacity = 0.5 + (cappedWeight * 0.025); 
 
                 if (!el) {
                     el = document.createElement('div');
                     el.className = 'word-bubble';
                     el.onclick = () => upvoteWord(word.id);
-                    // Random start position
-                    el.x = 260 + Math.random() * (window.innerWidth - 360); 
-                    el.y = Math.random() * (window.innerHeight - 100);
-                    // Random velocity
+                    
+                    // Spawn logic
+                    el.x = Math.random() * (container.clientWidth - 100); 
+                    el.y = Math.random() * (container.clientHeight - 50);
                     el.vx = (Math.random() - 0.5) * speed * 2;
                     el.vy = (Math.random() - 0.5) * speed * 2;
+                    
                     container.appendChild(el);
                     wordElements[word.id] = el;
                 }
 
-                // ADMIN TOOLTIP: If the API sent 'created_by', show it on hover
                 if (word.created_by) {
                     el.title = `Created by: ${word.created_by}`;
-                    el.style.borderBottom = "1px dotted #555"; 
+                    el.style.borderBottom = "2px dotted rgba(255,255,255,0.5)"; 
                 } else {
                     el.removeAttribute('title');
                     el.style.borderBottom = "none";
                 }
 
-                // Update content and size (this happens live!)
                 el.innerHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
                 el.style.fontSize = `${fontSize}px`;
                 el.style.opacity = opacity;
@@ -370,51 +342,55 @@
         }
 
         function animate() {
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-            const sidebarWidth = 250; 
+            // We use clientWidth/Height so it automatically adjusts 
+            // when the CSS changes the container size (e.g. on rotation)
+            const width = container.clientWidth;
+            const height = container.clientHeight;
 
             for (let id in wordElements) {
                 let el = wordElements[id];
                 el.x += el.vx;
                 el.y += el.vy;
+                
                 const rect = el.getBoundingClientRect();
 
-                // Bounce off right
+                // Right Wall
                 if (el.x + rect.width >= width) {
                     el.vx *= -1;
                     el.x = width - rect.width;
                 }
-                // Bounce off sidebar
-                if (el.x <= sidebarWidth) {
+                // Left Wall
+                if (el.x <= 0) {
                     el.vx *= -1;
-                    el.x = sidebarWidth;
+                    el.x = 0;
                 }
-                // Bounce off top/bottom
-                if (el.y <= 0 || el.y + rect.height >= height) {
+                // Bottom Wall
+                if (el.y + rect.height >= height) {
                     el.vy *= -1;
-                    el.y = Math.max(0, Math.min(el.y, height - rect.height));
+                    el.y = height - rect.height;
                 }
+                // Top Wall
+                if (el.y <= 0) {
+                    el.vy *= -1;
+                    el.y = 0;
+                }
+
                 el.style.transform = `translate(${el.x}px, ${el.y}px)`;
             }
             requestAnimationFrame(animate);
         }
 
-        // --- INITIALIZATION & POLLING ---
-
-        fetchAllData(); // Run once on load
-        animate();      // Start physics engine
+        // --- INIT ---
+        fetchAllData();
+        animate();
 
         document.getElementById('wordInput').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') submitWord();
         });
 
-        // POLL: Check for new words every 2 seconds
-        // We only poll fetchWords (the cloud) to avoid flickering the sidebar lists
+        // Polling (2s)
         setInterval(() => {
-            if (!document.hidden) {
-                fetchWords();
-            }
+            if (!document.hidden) fetchWords();
         }, 2000);
 
     </script>
