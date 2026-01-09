@@ -209,6 +209,8 @@
 
         // --- SIDEBAR RENDERING ---
 
+// --- SIDEBAR RENDERING ---
+
         function renderSidebar(data) {
             const createdList = document.getElementById('created-list');
             const upvotedList = document.getElementById('upvoted-list');
@@ -221,7 +223,7 @@
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <span class="word-text">${word.text}</span>
-                    <span class="remove-btn" onclick="deleteCreatedWord(${word.id})">✕</span>
+                    <span class="remove-btn" onclick="deleteCreatedWord(${word.id}, ${word.weight})">✕</span>
                 `;
                 createdList.appendChild(li);
             });
@@ -239,8 +241,38 @@
 
         // --- ACTIONS ---
 
-        async function deleteCreatedWord(id) {
-            if(!confirm("Remove this word? If it has many votes, it will stay but be unlinked from you.")) return;
+        // CHANGE: Function now accepts weight to determine the message
+        async function deleteCreatedWord(id, weight) {
+            let message;
+            
+            if (weight <= 2) {
+                message = "Remove this word?";
+            } else {
+                message = "Detach yourself from this word?";
+            }
+
+            if(!confirm(message)) return;
+            
+            const response = await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
+            if (response.ok) {
+                fetchAllData();
+            } else {
+                alert("Could not remove word.");
+            }
+        }
+
+        // --- ACTIONS ---
+
+	async function deleteCreatedWord(id, weight) {
+            let message;
+            
+            if (weight <= 2) {
+                message = "Remove this word?";
+            } else {
+                message = "Detach yourself from this word?";
+            }
+
+            if(!confirm(message)) return;
             
             const response = await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
             if (response.ok) {
