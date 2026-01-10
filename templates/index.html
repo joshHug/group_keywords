@@ -371,8 +371,11 @@
                     el.style.borderBottom = "none";
                 }
 
-                el.innerHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
-                el.style.fontSize = `${fontSize}px`;
+		const displayWeight = Number.isInteger(word.weight) ? word.weight : Number(word.weight.toFixed(2));
+		el.innerHTML = `<sup class="vote-count">${displayWeight}</sup>${word.text}`;
+                // el.innertHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
+
+		el.style.fontSize = `${fontSize}px`;
                 el.style.opacity = opacity;
             });
         }
