@@ -191,7 +191,7 @@
     </div>
 
     <div id="ui-container">
-        <input type="text" id="wordInput" placeholder="alpha_numeric..." maxlength="12">
+        <input type="text" id="wordInput" placeholder="Search or Add..." maxlength="12">
         <button class="add-btn" onclick="submitWord()">Add</button>
     </div>
 
@@ -200,6 +200,7 @@
     <script>
         const container = document.getElementById('canvas-container');
         const sidebar = document.getElementById('sidebar');
+        const inputField = document.getElementById('wordInput');
         let wordElements = {}; 
         
         // NEW: Global sets to track ownership for highlighting
@@ -221,7 +222,7 @@
                 const response = await fetch('/group_keywords/api/words');
                 if (!response.ok) return; 
                 const data = await response.json();
-                
+               
                 const newIds = new Set(data.map(w => w.id));
                 for (let id in wordElements) {
                     if (!newIds.has(parseInt(id))) {
@@ -238,7 +239,7 @@
                 const response = await fetch('/group_keywords/api/user_data');
                 if (!response.ok) return;
                 const data = await response.json();
-                
+               
                 // NEW: Update global sets
                 myCreatedIds = new Set(data.created.map(w => w.id));
                 myUpvotedIds = new Set(data.upvoted.map(w => w.id));
@@ -272,14 +273,25 @@
 
         // --- ACTIONS ---
 
-        // NEW: Toggle Vote Function
+        // NEW: Filter Logic
+        function filterWords() {
+            const query = inputField.value.toLowerCase().trim();
+            
+            for (let id in wordElements) {
+                const el = wordElements[id];
+                // el.wordText is set in updateWordCloud
+                if (query === '' || el.wordText.includes(query)) {
+                    el.style.display = 'inline-block';
+                } else {
+                    el.style.display = 'none';
+                }
+            }
+        }
+
         function toggleVote(id) {
-            // Check if user has already upvoted this word
             if (myUpvotedIds.has(id)) {
-                // If yes, remove the upvote
                 removeUpvote(id);
             } else {
-                // If no, add an upvote
                 upvoteWord(id);
             }
         }
@@ -299,8 +311,6 @@
         async function upvoteWord(id) {
             const response = await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
             if (response.status === 403) {
-                // 403 usually implies they voted, but our toggle logic should catch this.
-                // Just in case, reload data.
                 fetchAllData();
             } else {
                 fetchAllData();
@@ -308,8 +318,7 @@
         }
 
         async function submitWord() {
-            const input = document.getElementById('wordInput');
-            const text = input.value;
+            const text = inputField.value;
             if(!text) return;
 
             const response = await fetch('/group_keywords/api/words', {
@@ -322,13 +331,17 @@
             if (response.status === 403) alert(data.message);
             else if (data.status === 'exists') alert("That word is already floating around!");
 
-            input.value = '';
+            inputField.value = '';
+            filterWords(); // Reset filter since input is empty
             fetchAllData();
         }
 
         // --- VISUALS ---
 
         function updateWordCloud(data) {
+            // Capture current search query to persist filtering during updates
+            const currentSearch = inputField.value.toLowerCase().trim();
+
             data.forEach(word => {
                 let el = wordElements[word.id];
                 const cappedWeight = Math.min(word.weight, 20);
@@ -341,20 +354,28 @@
                 if (!el) {
                     el = document.createElement('div');
                     el.className = 'word-bubble';
-                    // NEW: Use toggleVote instead of upvoteWord
                     el.onclick = () => toggleVote(word.id);
-                    
+                   
                     el.x = safeLeft + 10 + Math.random() * (window.innerWidth - safeLeft - 100); 
                     el.y = Math.random() * (window.innerHeight - 100);
                     el.vx = (Math.random() - 0.5) * speed * 2;
                     el.vy = (Math.random() - 0.5) * speed * 2;
-                    
+                   
                     container.appendChild(el);
                     wordElements[word.id] = el;
                 }
 
-                // NEW: Apply highlighting classes
-                // Reset classes first
+                // NEW: Store raw text on element for easier filtering
+                el.wordText = word.text.toLowerCase();
+
+                // Apply filtering immediately
+                if (currentSearch !== '' && !el.wordText.includes(currentSearch)) {
+                    el.style.display = 'none';
+                } else {
+                    el.style.display = 'inline-block';
+                }
+
+                // Apply highlighting classes
                 el.classList.remove('my-created', 'my-upvoted');
 
                 if (myCreatedIds.has(word.id)) {
@@ -371,11 +392,10 @@
                     el.style.borderBottom = "none";
                 }
 
-		const displayWeight = Number.isInteger(word.weight) ? word.weight : Number(word.weight.toFixed(2));
-		el.innerHTML = `<sup class="vote-count">${displayWeight}</sup>${word.text}`;
-                // el.innertHTML = `<sup class="vote-count">${word.weight}</sup>${word.text}`;
+                const displayWeight = Number.isInteger(word.weight) ? word.weight : Number(word.weight.toFixed(2));
+                el.innerHTML = `<sup class="vote-count">${displayWeight}</sup>${word.text}`;
 
-		el.style.fontSize = `${fontSize}px`;
+                el.style.fontSize = `${fontSize}px`;
                 el.style.opacity = opacity;
             });
         }
@@ -388,6 +408,10 @@
 
             for (let id in wordElements) {
                 let el = wordElements[id];
+
+                // NEW: Skip animation for filtered-out words
+                if (el.style.display === 'none') continue;
+
                 el.x += el.vx;
                 el.y += el.vy;
                 const rect = el.getBoundingClientRect();
@@ -407,11 +431,14 @@
         fetchAllData(); 
         animate();      
 
-        document.getElementById('wordInput').addEventListener('keypress', function (e) {
+        // NEW: Event Listeners
+        inputField.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') submitWord();
         });
 
-        // We fetch user data in the poll loop now too, to keep highlights in sync
+        // Trigger filter when typing
+        inputField.addEventListener('input', filterWords);
+
         setInterval(() => {
             if (!document.hidden) fetchAllData();
         }, 2000);
