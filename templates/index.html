@@ -75,8 +75,8 @@
             border-radius: 3px;
         }
 
-        #created-list li span.word-text { font-size: 1.1em; font-weight: bold; color: #f1c40f; } /* Gold in list */
-        #upvoted-list li span.word-text { font-size: 0.9em; color: #2ecc71; } /* Green in list */
+        #created-list li span.word-text { font-size: 1.1em; font-weight: bold; color: #f1c40f; } 
+        #upvoted-list li span.word-text { font-size: 0.9em; color: #2ecc71; } 
 
         /* --- UI CONTAINER --- */
         #ui-container {
@@ -86,11 +86,23 @@
             transform: translateX(-50%);
             z-index: 100;
             display: flex;
+            flex-direction: column; /* Stack input and filters */
+            align-items: center;
             gap: 10px;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             padding: 15px;
-            border-radius: 30px;
+            border-radius: 20px;
             backdrop-filter: blur(5px);
+        }
+
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 8px;
         }
 
         input {
@@ -113,6 +125,29 @@
         }
         button.add-btn:hover { background-color: #3a7bd5; color: white; }
 
+        /* --- FILTER BUTTONS --- */
+        .filter-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .filter-btn.active {
+            background-color: #00d2ff;
+            color: #000;
+            font-weight: bold;
+            border-color: #00d2ff;
+        }
+
         #canvas-container {
             position: absolute;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -128,20 +163,19 @@
             font-weight: bold;
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
             display: inline-block; 
-            color: white; /* Default */
+            color: white; 
         }
 
         .word-bubble:hover { color: #00d2ff !important; z-index: 50; }
 
-        /* NEW: Highlight Styles */
         .my-created {
-            color: #f1c40f !important; /* Gold */
+            color: #f1c40f !important; 
             text-shadow: 0 0 5px rgba(241, 196, 15, 0.4);
             z-index: 10;
         }
         
         .my-upvoted {
-            color: #2ecc71 !important; /* Green */
+            color: #2ecc71 !important; 
             text-shadow: 0 0 5px rgba(46, 204, 113, 0.4);
             z-index: 10;
         }
@@ -151,10 +185,15 @@
             vertical-align: super;
             margin-right: 2px;
             opacity: 0.8;
-            color: inherit; /* Matches the word color now */
+            color: inherit; 
         }
 
-        /* --- MOBILE --- */
+        /* --- MOBILE & RESPONSIVE --- */
+        @media screen and (max-width: 768px) {
+            /* Hide higher filters on mobile */
+            .desktop-only { display: none; }
+        }
+
         @media screen and (max-width: 768px) and (orientation: portrait) {
             #sidebar {
                 width: auto; height: auto; background: transparent; border: none; padding: 10px; pointer-events: none;
@@ -179,6 +218,10 @@
             <strong>User:</strong>
             <span id="user-id-display">Loading...</span>
         </div>
+<div style="margin-bottom: 10px; display: flex; gap: 10px;">
+    <a href="/group_keywords/float" style="text-decoration: none; background: #00d2ff; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.8rem;">Float</a>
+    <a href="/group_keywords/list" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #ccc; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">List</a>
+</div>
 
         <div>
             <h3>My Words</h3>
@@ -191,8 +234,16 @@
     </div>
 
     <div id="ui-container">
-        <input type="text" id="wordInput" placeholder="Search or Add..." maxlength="12">
-        <button class="add-btn" onclick="submitWord()">Add</button>
+        <div class="input-row">
+            <input type="text" id="wordInput" placeholder="Search or Add..." maxlength="12">
+            <button class="add-btn" onclick="submitWord()">Add</button>
+        </div>
+        <div class="filter-row">
+            <button class="filter-btn active" onclick="setFilter(0, this)">All</button>
+            <button class="filter-btn" onclick="setFilter(2, this)">≥ 2</button>
+            <button class="filter-btn desktop-only" onclick="setFilter(5, this)">≥ 5</button>
+            <button class="filter-btn desktop-only" onclick="setFilter(10, this)">≥ 10</button>
+        </div>
     </div>
 
     <div id="canvas-container"></div>
@@ -203,16 +254,17 @@
         const inputField = document.getElementById('wordInput');
         let wordElements = {}; 
         
-        // NEW: Global sets to track ownership for highlighting
         let myCreatedIds = new Set();
         let myUpvotedIds = new Set();
+
+        // NEW: Track current weight filter
+        let currentWeightFilter = 0;
 
         const speed = 0.5;
 
         // --- FETCHING DATA ---
 
         async function fetchAllData() {
-            // We fetch user data first to populate the sets before rendering the cloud
             await fetchUserData();
             await fetchWords();
         }
@@ -240,7 +292,6 @@
                 if (!response.ok) return;
                 const data = await response.json();
                
-                // NEW: Update global sets
                 myCreatedIds = new Set(data.created.map(w => w.id));
                 myUpvotedIds = new Set(data.upvoted.map(w => w.id));
 
@@ -273,14 +324,29 @@
 
         // --- ACTIONS ---
 
-        // NEW: Filter Logic
+        // NEW: Filter Button Handler
+        function setFilter(val, btn) {
+            currentWeightFilter = val;
+            
+            // Visual toggle
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            // Apply filter
+            filterWords();
+        }
+
         function filterWords() {
             const query = inputField.value.toLowerCase().trim();
             
             for (let id in wordElements) {
                 const el = wordElements[id];
-                // el.wordText is set in updateWordCloud
-                if (query === '' || el.wordText.includes(query)) {
+                // el.wordText and el.wordWeight are set in updateWordCloud
+                
+                const matchesText = (query === '' || el.wordText.includes(query));
+                const matchesWeight = (el.wordWeight >= currentWeightFilter);
+
+                if (matchesText && matchesWeight) {
                     el.style.display = 'inline-block';
                 } else {
                     el.style.display = 'none';
@@ -332,14 +398,13 @@
             else if (data.status === 'exists') alert("That word is already floating around!");
 
             inputField.value = '';
-            filterWords(); // Reset filter since input is empty
+            filterWords();
             fetchAllData();
         }
 
         // --- VISUALS ---
 
         function updateWordCloud(data) {
-            // Capture current search query to persist filtering during updates
             const currentSearch = inputField.value.toLowerCase().trim();
 
             data.forEach(word => {
@@ -365,17 +430,21 @@
                     wordElements[word.id] = el;
                 }
 
-                // NEW: Store raw text on element for easier filtering
+                // NEW: Store raw text and weight for filter logic
                 el.wordText = word.text.toLowerCase();
+                el.wordWeight = word.weight;
 
-                // Apply filtering immediately
-                if (currentSearch !== '' && !el.wordText.includes(currentSearch)) {
-                    el.style.display = 'none';
-                } else {
+                // Apply filtering (Dual check: Search + Weight)
+                const matchesText = (currentSearch === '' || el.wordText.includes(currentSearch));
+                const matchesWeight = (el.wordWeight >= currentWeightFilter);
+
+                if (matchesText && matchesWeight) {
                     el.style.display = 'inline-block';
+                } else {
+                    el.style.display = 'none';
                 }
 
-                // Apply highlighting classes
+                // Apply highlighting
                 el.classList.remove('my-created', 'my-upvoted');
 
                 if (myCreatedIds.has(word.id)) {
@@ -409,7 +478,6 @@
             for (let id in wordElements) {
                 let el = wordElements[id];
 
-                // NEW: Skip animation for filtered-out words
                 if (el.style.display === 'none') continue;
 
                 el.x += el.vx;
@@ -431,12 +499,11 @@
         fetchAllData(); 
         animate();      
 
-        // NEW: Event Listeners
         inputField.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') submitWord();
         });
 
-        // Trigger filter when typing
+        // Trigger filter on text typing
         inputField.addEventListener('input', filterWords);
 
         setInterval(() => {

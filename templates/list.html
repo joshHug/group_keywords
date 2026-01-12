@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word List View</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR (Kept for User Management) --- */
+        #sidebar {
+            width: 250px;
+            background-color: rgba(0, 0, 0, 0.8);
+            border-right: 1px solid #333;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            flex-shrink: 0;
+        }
+
+        #user-info {
+            color: #999;
+            font-size: 0.85rem;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+            word-break: break-all;
+        }
+        
+        #user-info strong { color: #ccc; display: block; margin-bottom: 3px; }
+
+        h3 {
+            margin: 0 0 10px 0;
+            color: #00d2ff;
+            font-size: 1.1rem;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .user-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; max-height: 30vh; }
+        .user-list li {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+        
+        .remove-btn { color: #ff4444; cursor: pointer; font-weight: bold; margin-left: 10px; }
+        .remove-btn:hover { color: #ff0000; }
+
+        /* --- MAIN LIST CONTENT --- */
+        #main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .view-switcher a {
+            text-decoration: none;
+            color: #ccc;
+            background: #333;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+        }
+        .view-switcher a:hover { background: #555; color: white; }
+        .view-switcher a.active { background: #00d2ff; color: #000; font-weight: bold; }
+
+        /* Input Area */
+        .input-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            max-width: 600px;
+        }
+        input {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+        button.add-btn {
+            padding: 10px 20px;
+            border-radius: 5px;
+            border: none;
+            background-color: #00d2ff;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button.add-btn:hover { background-color: #3a7bd5; color: white; }
+
+        /* Scrollable List Area */
+        #list-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+
+        .list-header {
+            display: grid;
+            grid-template-columns: 60px 1fr 100px 100px;
+            padding: 15px;
+            background: #2a2a2a;
+            position: sticky;
+            top: 0;
+            border-bottom: 1px solid #444;
+            font-weight: bold;
+            color: #aaa;
+        }
+
+        .word-row {
+            display: grid;
+            grid-template-columns: 60px 1fr 100px 100px;
+            padding: 12px 15px;
+            border-bottom: 1px solid #333;
+            align-items: center;
+            transition: background 0.2s;
+        }
+        .word-row:hover { background: rgba(255,255,255,0.05); }
+
+        .rank-col { color: #666; font-family: monospace; }
+        .text-col { font-size: 1.1em; font-weight: bold; }
+        .weight-col { color: #00d2ff; }
+        .action-col button {
+            background: transparent;
+            border: 1px solid #555;
+            color: #ccc;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .action-col button:hover { border-color: #00d2ff; color: #00d2ff; }
+        .action-col button.voted { background: #2ecc71; border-color: #2ecc71; color: #000; }
+
+        /* Highlights */
+        .my-created .text-col { color: #f1c40f; }
+        .my-upvoted .text-col { color: #2ecc71; }
+
+        /* Responsive */
+        @media screen and (max-width: 768px) {
+            #sidebar { display: none; }
+            .list-header, .word-row { grid-template-columns: 40px 1fr 70px 60px; font-size: 0.9em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <div id="user-info">
+            <strong>User:</strong> <span id="user-id-display">Loading...</span>
+        </div>
+<div style="margin-bottom: 10px; display: flex; gap: 10px;">
+    <a href="/group_keywords/float" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #ccc; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">Float</a>
+    <a href="/group_keywords/list" style="text-decoration: none; background: #00d2ff; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.8rem;">List</a>
+</div>
+
+        <div>
+            <h3>My Words</h3>
+            <ul id="created-list" class="user-list"></ul>
+        </div>
+        <div>
+            <h3>My Upvotes</h3>
+            <ul id="upvoted-list" class="user-list"></ul>
+        </div>
+    </div>
+
+    <div id="main-content">
+        <div class="top-bar">
+            <h2>Keywords</h2>  
+        </div>
+
+        <div class="input-row">
+            <input type="text" id="wordInput" placeholder="Add new word..." maxlength="12">
+            <button class="add-btn" onclick="submitWord()">Add</button>
+        </div>
+
+        <div id="list-container">
+            <div class="list-header">
+                <div>#</div>
+                <div>Word</div>
+                <div>Score</div>
+                <div>Vote</div>
+            </div>
+            <div id="words-wrapper">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        const wordsWrapper = document.getElementById('words-wrapper');
+        const inputField = document.getElementById('wordInput');
+        
+        let myCreatedIds = new Set();
+        let myUpvotedIds = new Set();
+
+        // --- FETCHING DATA ---
+        async function fetchAllData() {
+            await fetchUserData();
+            await fetchWords();
+        }
+
+        async function fetchWords() {
+            try {
+                const response = await fetch('/group_keywords/api/words');
+                if (!response.ok) return; 
+                const data = await response.json();
+                
+                // Sort by weight descending
+                data.sort((a, b) => b.weight - a.weight);
+                
+                renderList(data);
+            } catch (e) { console.error("Polling error:", e); }
+        }
+
+        async function fetchUserData() {
+            try {
+                const response = await fetch('/group_keywords/api/user_data');
+                if (!response.ok) return;
+                const data = await response.json();
+                
+                document.getElementById('user-id-display').innerText = data.user_id;
+                myCreatedIds = new Set(data.created.map(w => w.id));
+                myUpvotedIds = new Set(data.upvoted.map(w => w.id));
+
+                renderSidebar(data);
+            } catch (e) { console.error("User data error:", e); }
+        }
+
+        // --- RENDERING ---
+        function renderList(words) {
+            wordsWrapper.innerHTML = '';
+            
+            words.forEach((word, index) => {
+                const row = document.createElement('div');
+                row.className = 'word-row';
+                
+                // Highlights
+                if (myCreatedIds.has(word.id)) row.classList.add('my-created');
+                else if (myUpvotedIds.has(word.id)) row.classList.add('my-upvoted');
+
+                // Button state
+                const isVoted = myUpvotedIds.has(word.id);
+                const btnClass = isVoted ? 'voted' : '';
+                const btnText = isVoted ? '✔' : '▲';
+                const displayWeight = Number.isInteger(word.weight) ? word.weight : word.weight.toFixed(2);
+
+                row.innerHTML = `
+                    <div class="rank-col">${index + 1}</div>
+                    <div class="text-col">${word.text}</div>
+                    <div class="weight-col">${displayWeight}</div>
+                    <div class="action-col">
+                        <button class="${btnClass}" onclick="toggleVote(${word.id})">${btnText}</button>
+                    </div>
+                `;
+                wordsWrapper.appendChild(row);
+            });
+        }
+
+        function renderSidebar(data) {
+            const createdList = document.getElementById('created-list');
+            const upvotedList = document.getElementById('upvoted-list');
+
+            createdList.innerHTML = '';
+            upvotedList.innerHTML = '';
+
+            data.created.forEach(word => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span style="color:#f1c40f">${word.text}</span><span class="remove-btn" onclick="deleteCreatedWord(${word.id}, ${word.weight})">✕</span>`;
+                createdList.appendChild(li);
+            });
+
+            data.upvoted.forEach(word => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span style="color:#2ecc71">${word.text}</span><span class="remove-btn" onclick="removeUpvote(${word.id})">✕</span>`;
+                upvotedList.appendChild(li);
+            });
+        }
+
+        // --- ACTIONS ---
+        async function submitWord() {
+            const text = inputField.value;
+            if(!text) return;
+
+            const response = await fetch('/group_keywords/api/words', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ text: text })
+            });
+            const data = await response.json();
+            
+            if (response.status === 403) alert(data.message);
+            else if (data.status === 'exists') alert("Word already exists!");
+
+            inputField.value = '';
+            fetchAllData();
+        }
+
+        function toggleVote(id) {
+            if (myUpvotedIds.has(id)) removeUpvote(id);
+            else upvoteWord(id);
+        }
+
+        async function upvoteWord(id) {
+            await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
+            fetchAllData();
+        }
+
+        async function removeUpvote(id) {
+            await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
+            fetchAllData();
+        }
+
+        async function deleteCreatedWord(id, weight) {
+            let message = (weight <= 2) ? "Remove this word?" : "Detach yourself from this word?";
+            if(!confirm(message)) return;
+            await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
+            fetchAllData();
+        }
+
+        // Init and Polling
+        fetchAllData();
+        
+        inputField.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') submitWord();
+        });
+
+        setInterval(() => {
+            if (!document.hidden) fetchAllData();
+        }, 2000);
+
+    </script>
+</body>
+</html>

@@ -98,6 +98,14 @@ def process_decay(word_dict):
 def index():
     return render_template('index.html')
 
+@app.route('/group_keywords/float')
+def float_view():
+    return render_template('index.html')
+
+@app.route('/group_keywords/list')
+def list_view():
+    return render_template('list.html')
+
 @app.route('/group_keywords/api/words', methods=['GET'])
 def get_words():
     user_email = get_current_user()
