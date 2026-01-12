@@ -199,7 +199,7 @@
         </div>
 
         <div class="input-row">
-            <input type="text" id="wordInput" placeholder="Add new word..." maxlength="12">
+	    <input type="text" id="wordInput" placeholder="Add new word..." maxlength="12" oninput="filterList()">
             <button class="add-btn" onclick="submitWord()">Add</button>
         </div>
 
@@ -256,6 +256,23 @@
         }
 
         // --- RENDERING ---
+
+	function filterList() {
+	    const query = inputField.value.toLowerCase();
+	    const rows = document.querySelectorAll('.word-row');
+	    
+	    rows.forEach(row => {
+	        const wordText = row.querySelector('.text-col').innerText.toLowerCase();
+	        // If query is empty or matches substring, show the row (revert to CSS default)
+	        // Otherwise, hide it
+	        if (!query || wordText.includes(query)) {
+	            row.style.display = ''; 
+	        } else {
+	            row.style.display = 'none';
+	        }
+	    });
+	}
+
         function renderList(words) {
             wordsWrapper.innerHTML = '';
             
@@ -283,6 +300,8 @@
                 `;
                 wordsWrapper.appendChild(row);
             });
+
+	    filterList();
         }
 
         function renderSidebar(data) {
