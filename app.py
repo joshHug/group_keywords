@@ -61,7 +61,12 @@ def init_db():
             db.execute("ALTER TABLE words ADD COLUMN decay_start TIMESTAMP")
         except sqlite3.OperationalError:
             pass # Column likely already exists
-            
+    
+        try:
+            db.execute("ALTER TABLE words ADD COLUMN description TEXT")
+        except sqlite3.OperationalError:
+            pass
+
         db.commit()
 
 # --- HELPER: Calculate Decay ---
@@ -180,8 +185,8 @@ def add_word():
     text = text.replace(' ', '_')
     text = re.sub(r'[^a-z0-9_]', '', text)
     
-    if len(text) > 32:
-        text = text[:32]
+    if len(text) > 20:
+        text = text[:20]
 
     user_email = get_current_user()
 
@@ -324,6 +329,25 @@ def remove_upvote(word_id):
     except Exception as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
+
+@app.route('/group_keywords/api/words/<int:word_id>/description', methods=['POST'])
+def update_description(word_id):
+    user_email = get_current_user()
+    data = request.json
+    # Enforce max 40 chars
+    description = data.get('description', '').strip()[:40] 
+
+    db = get_db()
+    # Verify ownership
+    cursor = db.execute('SELECT created_by FROM words WHERE id = ?', (word_id,))
+    row = cursor.fetchone()
+
+    if not row or row['created_by'] != user_email:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    db.execute('UPDATE words SET description = ? WHERE id = ?', (description, word_id))
+    db.commit()
+    return jsonify({'status': 'updated', 'description': description})
 
 if __name__ == '__main__':
     init_db()

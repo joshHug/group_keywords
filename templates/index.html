@@ -194,16 +194,30 @@
             .desktop-only { display: none; }
         }
 
-        @media screen and (max-width: 768px) and (orientation: portrait) {
+	@media screen and (max-width: 768px) and (orientation: portrait) {
             #sidebar {
                 width: auto; height: auto; background: transparent; border: none; padding: 10px; pointer-events: none;
             }
+            /* 1. Make User Info clickable */
             #user-info {
                 display: inline-block; pointer-events: auto; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; border: none;
             }
-            #sidebar > div:not(#user-info) { display: none; }
+            
+            /* 2. Make Buttons visible and clickable */
+            #nav-buttons {
+                display: inline-flex !important; /* Force show */
+                pointer-events: auto;            /* Enable clicking */
+                background: rgba(0,0,0,0.8);     /* Dark background for readability */
+                padding: 10px;
+                border-radius: 8px;
+                margin-top: 10px;                /* Space between user info and buttons */
+            }
+
+            /* 3. Hide everything ELSE (lists, etc) */
+            #sidebar > div:not(#user-info):not(#nav-buttons) { display: none; }
+            
             #ui-container { display: none; }
-        }
+        }	
 
         @media screen and (max-width: 900px) and (orientation: landscape) {
             #sidebar { width: 200px; padding: 10px; background-color: rgba(0, 0, 0, 0.9); }
@@ -218,7 +232,7 @@
             <strong>User:</strong>
             <span id="user-id-display">Loading...</span>
         </div>
-<div style="margin-bottom: 10px; display: flex; gap: 10px;">
+<div id="nav-buttons" style="margin-bottom: 10px; display: flex; gap: 10px;">
     <a href="/group_keywords/float" style="text-decoration: none; background: #00d2ff; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.8rem;">Float</a>
     <a href="/group_keywords/list" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #ccc; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">List</a>
 </div>
