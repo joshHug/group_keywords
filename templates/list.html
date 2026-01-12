@@ -170,6 +170,40 @@
             #sidebar { display: none; }
             .list-header, .word-row { grid-template-columns: 40px 1fr 70px 60px; font-size: 0.9em; }
         }
+
+	.desc-text {
+		font-size: 0.8em;
+		color: #888;
+		font-weight: normal;
+		margin-left: 8px;
+		font-style: italic;
+	}
+	.desc-add-btn {
+		font-size: 0.8em;
+		color: #555;
+		cursor: pointer;
+		margin-left: 8px;
+		text-decoration: none;
+		font-weight: bold;
+	}
+	.desc-add-btn:hover { color: #00d2ff; }
+
+	/* Input field when editing */
+	.desc-input {
+		background: #222;
+		border: 1px solid #555;
+		color: white;
+		border-radius: 3px;
+		font-size: 0.8em;
+		margin-left: 5px;
+		width: 150px;
+	}
+	/* Clickable description for owners */
+	.editable-desc {
+		cursor: pointer;
+		border-bottom: 1px dashed #444;
+	}
+	.editable-desc:hover { color: #ccc; }	
     </style>
 </head>
 <body>
@@ -273,36 +307,60 @@
 	    });
 	}
 
-        function renderList(words) {
-            wordsWrapper.innerHTML = '';
-            
-            words.forEach((word, index) => {
-                const row = document.createElement('div');
-                row.className = 'word-row';
-                
-                // Highlights
-                if (myCreatedIds.has(word.id)) row.classList.add('my-created');
-                else if (myUpvotedIds.has(word.id)) row.classList.add('my-upvoted');
+	function renderList(words) {
+	    wordsWrapper.innerHTML = '';
 
-                // Button state
-                const isVoted = myUpvotedIds.has(word.id);
-                const btnClass = isVoted ? 'voted' : '';
-                const btnText = isVoted ? '✔' : '▲';
-                const displayWeight = Number.isInteger(word.weight) ? word.weight : word.weight.toFixed(2);
+	    words.forEach((word, index) => {
+		const row = document.createElement('div');
+		row.className = 'word-row';
 
-                row.innerHTML = `
-                    <div class="rank-col">${index + 1}</div>
-                    <div class="text-col">${word.text}</div>
-                    <div class="weight-col">${displayWeight}</div>
-                    <div class="action-col">
-                        <button class="${btnClass}" onclick="toggleVote(${word.id})">${btnText}</button>
-                    </div>
-                `;
-                wordsWrapper.appendChild(row);
-            });
+		// Highlights
+		const isMine = myCreatedIds.has(word.id);
+		if (isMine) row.classList.add('my-created');
+		else if (myUpvotedIds.has(word.id)) row.classList.add('my-upvoted');
 
-	    filterList();
-        }
+		// Button state
+		const isVoted = myUpvotedIds.has(word.id);
+		const btnClass = isVoted ? 'voted' : '';
+		const btnText = isVoted ? '✔' : '▲';
+		const displayWeight = Number.isInteger(word.weight) ? word.weight : word.weight.toFixed(2);
+
+		// --- DESCRIPTION LOGIC ---
+		let descHtml = '';
+		const safeDesc = (word.description || '').replace(/"/g, '&quot;'); // Escape quotes
+
+		if (isMine) {
+		    // I own this word
+		    if (word.description) {
+			// Click to edit
+			descHtml = `<span class="desc-text editable-desc" title="Click to edit" onclick="editDesc(this, ${word.id}, '${safeDesc}')">(${word.description})</span>`;
+		    } else {
+			// Show Plus sign
+			descHtml = `<span class="desc-add-btn" title="Add description" onclick="editDesc(this, ${word.id}, '')">+ add description</span>`;
+		    }
+		} else {
+		    // I do NOT own this word - just show text if it exists
+		    if (word.description) {
+			descHtml = `<span class="desc-text">(${word.description})</span>`;
+		    }
+		}
+		// -------------------------
+
+		row.innerHTML = `
+		    <div class="rank-col">${index + 1}</div>
+		    <div class="text-col">
+			${word.text}${descHtml}
+		    </div>
+		    <div class="weight-col">${displayWeight}</div>
+		    <div class="action-col">
+			<button class="${btnClass}" onclick="toggleVote(${word.id})">${btnText}</button>
+		    </div>
+		`;
+		wordsWrapper.appendChild(row);
+	    });
+
+	    filterList(); // Re-apply filter
+	}
 
         function renderSidebar(data) {
             const createdList = document.getElementById('created-list');
@@ -372,9 +430,62 @@
             if (e.key === 'Enter') submitWord();
         });
 
-        setInterval(() => {
-            if (!document.hidden) fetchAllData();
-        }, 2000);
+	// Existing polling setup
+	const REFRESH_INTERVAL = 2000;
+
+	setInterval(() => {
+	    // 1. Check if the main "New word" input is focused
+	    const mainInputFocused = (document.activeElement === inputField);
+	    
+	    // 2. Check if a "Description" input box currently exists on the page
+	    const isEditingDesc = document.querySelector('.desc-input') !== null;
+
+	    // Only refresh if we are NOT typing in the main box AND NOT editing a description
+	    if (!mainInputFocused && !isEditingDesc) {
+		fetchAllData();
+	    }
+	}, REFRESH_INTERVAL);
+
+	// Convert the text/plus into an input field
+	function editDesc(element, wordId, currentVal) {
+	    // Prevent clicking bubbling up (optional safety)
+	    event.stopPropagation();
+
+	    const parent = element.parentNode;
+
+	    // Create input field
+	    const input = document.createElement('input');
+	    input.type = 'text';
+	    input.className = 'desc-input';
+	    input.value = currentVal;
+	    input.maxLength = 40;
+	    input.placeholder = "Desc (max 40)";
+
+	    // Save on Blur (clicking away) or Enter key
+	    input.onblur = () => saveDesc(wordId, input.value);
+	    input.onkeypress = (e) => {
+		if (e.key === 'Enter') input.blur();
+	    };
+
+	    // Replace the span with the input
+	    parent.replaceChild(input, element);
+	    input.focus();
+	}
+
+	// API Call to save
+	async function saveDesc(wordId, newText) {
+	    try {
+		await fetch(`/group_keywords/api/words/${wordId}/description`, {
+		    method: 'POST',
+		    headers: {'Content-Type': 'application/json'},
+		    body: JSON.stringify({ description: newText })
+		});
+		// Refresh data to show the new text (or plus sign if empty)
+		fetchAllData(); 
+	    } catch (e) {
+		console.error("Save failed", e);
+		    }
+		}
 
     </script>
 </body>
