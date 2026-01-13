@@ -99,19 +99,19 @@ def process_decay(word_dict):
         
     return word_dict, False
 
-@app.route('/group_keywords/')
+@app.route('/group_keywords/data8/')
 def index():
     return render_template('index.html')
 
-@app.route('/group_keywords/float')
+@app.route('/group_keywords/data8/float')
 def float_view():
     return render_template('index.html')
 
-@app.route('/group_keywords/list')
+@app.route('/group_keywords/data8/list')
 def list_view():
     return render_template('list.html')
 
-@app.route('/group_keywords/api/words', methods=['GET'])
+@app.route('/group_keywords/data8/api/words', methods=['GET'])
 def get_words():
     user_email = get_current_user()
     db = get_db()
@@ -145,7 +145,7 @@ def get_words():
 
     return jsonify(words)
 
-@app.route('/group_keywords/api/user_data', methods=['GET'])
+@app.route('/group_keywords/data8/api/user_data', methods=['GET'])
 def get_user_data():
     user_email = get_current_user()
     db = get_db()
@@ -176,7 +176,7 @@ def get_user_data():
         'is_admin': user_email in ADMINS
     })
 
-@app.route('/group_keywords/api/words', methods=['POST'])
+@app.route('/group_keywords/data8/api/words', methods=['POST'])
 def add_word():
     data = request.json
     raw_text = data.get('text', '').strip()
@@ -210,7 +210,7 @@ def add_word():
     except sqlite3.IntegrityError:
         return jsonify({'status': 'exists', 'text': text, 'message': 'Word already exists'}), 200
 
-@app.route('/group_keywords/api/words/<int:word_id>/delete', methods=['DELETE'])
+@app.route('/group_keywords/data8/api/words/<int:word_id>/delete', methods=['DELETE'])
 def delete_created_word(word_id):
     user_email = get_current_user()
     db = get_db()
@@ -246,7 +246,7 @@ def delete_created_word(word_id):
     db.commit()
     return jsonify({'status': 'removed'})
 
-@app.route('/group_keywords/api/words/<int:word_id>/upvote', methods=['POST'])
+@app.route('/group_keywords/data8/api/words/<int:word_id>/upvote', methods=['POST'])
 def upvote_word(word_id):
     user_email = get_current_user()
     db = get_db()
@@ -296,7 +296,7 @@ def upvote_word(word_id):
         db.rollback()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/group_keywords/api/words/<int:word_id>/vote', methods=['DELETE'])
+@app.route('/group_keywords/data8/api/words/<int:word_id>/vote', methods=['DELETE'])
 def remove_upvote(word_id):
     user_email = get_current_user()
     db = get_db()
@@ -330,7 +330,7 @@ def remove_upvote(word_id):
         db.rollback()
         return jsonify({'error': str(e)}), 500
 
-@app.route('/group_keywords/api/words/<int:word_id>/description', methods=['POST'])
+@app.route('/group_keywords/data8/api/words/<int:word_id>/description', methods=['POST'])
 def update_description(word_id):
     user_email = get_current_user()
     data = request.json
@@ -351,4 +351,4 @@ def update_description(word_id):
 
 if __name__ == '__main__':
     init_db()
-    app.run(debug=True)
+    app.run(debug=True, port=5002)

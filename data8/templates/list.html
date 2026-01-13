@@ -229,8 +229,8 @@
         </div>
 
 <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-    <a href="/group_keywords/float" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #ccc; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">Float</a>
-    <a href="/group_keywords/list" style="text-decoration: none; background: #00d2ff; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.8rem;">List</a>
+    <a href="/group_keywords/data8/float" style="text-decoration: none; background: rgba(255,255,255,0.1); color: #ccc; padding: 5px 10px; border-radius: 5px; font-size: 0.8rem;">Float</a>
+    <a href="/group_keywords/data8/list" style="text-decoration: none; background: #00d2ff; color: black; padding: 5px 10px; border-radius: 5px; font-weight: bold; font-size: 0.8rem;">List</a>
 </div>
 
         <div class="input-row">
@@ -265,7 +265,7 @@
 
         async function fetchWords() {
             try {
-                const response = await fetch('/group_keywords/api/words');
+                const response = await fetch('/group_keywords/data8/api/words');
                 if (!response.ok) return; 
                 const data = await response.json();
                 
@@ -278,7 +278,7 @@
 
         async function fetchUserData() {
             try {
-                const response = await fetch('/group_keywords/api/user_data');
+                const response = await fetch('/group_keywords/data8/api/user_data');
                 if (!response.ok) return;
                 const data = await response.json();
                 
@@ -388,7 +388,7 @@
             const text = inputField.value;
             if(!text) return;
 
-            const response = await fetch('/group_keywords/api/words', {
+            const response = await fetch('/group_keywords/data8/api/words', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ text: text })
@@ -408,19 +408,19 @@
         }
 
         async function upvoteWord(id) {
-            await fetch(`/group_keywords/api/words/${id}/upvote`, { method: 'POST' });
+            await fetch(`/group_keywords/data8/api/words/${id}/upvote`, { method: 'POST' });
             fetchAllData();
         }
 
         async function removeUpvote(id) {
-            await fetch(`/group_keywords/api/words/${id}/vote`, { method: 'DELETE' });
+            await fetch(`/group_keywords/data8/api/words/${id}/vote`, { method: 'DELETE' });
             fetchAllData();
         }
 
         async function deleteCreatedWord(id, weight) {
             let message = (weight <= 2) ? "Remove this word?" : "Detach yourself from this word?";
             if(!confirm(message)) return;
-            await fetch(`/group_keywords/api/words/${id}/delete`, { method: 'DELETE' });
+            await fetch(`/group_keywords/data8/api/words/${id}/delete`, { method: 'DELETE' });
             fetchAllData();
         }
 
@@ -476,7 +476,7 @@
 	// API Call to save
 	async function saveDesc(wordId, newText) {
 	    try {
-		await fetch(`/group_keywords/api/words/${wordId}/description`, {
+		await fetch(`/group_keywords/data8/api/words/${wordId}/description`, {
 		    method: 'POST',
 		    headers: {'Content-Type': 'application/json'},
 		    body: JSON.stringify({ description: newText })
@@ -490,5 +490,4 @@
 
     </script>
 </body>
-
 </html>
